@@ -1,0 +1,411 @@
+Subject: [PATCH] fixes
+---
+Index: build.gradle.kts
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/build.gradle.kts b/build.gradle.kts
+--- a/build.gradle.kts	(revision 558331286eb98e64faccb3dc1ec4f180a1a47687)
++++ b/build.gradle.kts	(revision 23e49bec82d3024784ec68c5440e27ecd1729650)
+@@ -47,11 +47,11 @@
+ 
+     implementation("at.favre.lib:bcrypt:0.9.0")
+ 
+-    implementation("org.postgresql:postgresql:42.2.12")
++    implementation("org.postgresql:postgresql:42.5.1")
+ 
+     implementation("org.jetbrains.exposed:exposed:0.17.13")
+     implementation("com.zaxxer:HikariCP:2.7.8")
+-    implementation("org.flywaydb:flyway-core:5.2.4")
++    implementation("org.flywaydb:flyway-core:7.10.0")
+ 
+     implementation("com.squareup.retrofit2:retrofit:2.3.0")
+     implementation("com.squareup.retrofit2:converter-jackson:2.3.0")
+Index: src/main/java/mobi/sevenwinds/app/author/AuthorApi.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/java/mobi/sevenwinds/app/author/AuthorApi.kt b/src/main/java/mobi/sevenwinds/app/author/AuthorApi.kt
+new file mode 100644
+--- /dev/null	(revision 23e49bec82d3024784ec68c5440e27ecd1729650)
++++ b/src/main/java/mobi/sevenwinds/app/author/AuthorApi.kt	(revision 23e49bec82d3024784ec68c5440e27ecd1729650)
+@@ -0,0 +1,22 @@
++package mobi.sevenwinds.app.author
++
++import com.papsign.ktor.openapigen.route.info
++import com.papsign.ktor.openapigen.route.path.normal.NormalOpenAPIRoute
++import com.papsign.ktor.openapigen.route.path.normal.post
++import com.papsign.ktor.openapigen.route.response.respond
++import com.papsign.ktor.openapigen.route.route
++import org.joda.time.DateTime
++
++fun NormalOpenAPIRoute.author() {
++    route("/author") {
++        route("/add").post<Unit, AuthorRecord, AuthorRecord>(info("Добавить запись")) { param, body ->
++            respond(AuthorService.addAuthor(body))
++        }
++    }
++}
++
++data class AuthorRecord(
++    val fullName: String,
++    val creationDate: DateTime,
++)
++
+Index: src/main/java/mobi/sevenwinds/app/author/AuthorService.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/java/mobi/sevenwinds/app/author/AuthorService.kt b/src/main/java/mobi/sevenwinds/app/author/AuthorService.kt
+new file mode 100644
+--- /dev/null	(revision 23e49bec82d3024784ec68c5440e27ecd1729650)
++++ b/src/main/java/mobi/sevenwinds/app/author/AuthorService.kt	(revision 23e49bec82d3024784ec68c5440e27ecd1729650)
+@@ -0,0 +1,20 @@
++package mobi.sevenwinds.app.author
++
++import kotlinx.coroutines.Dispatchers
++import kotlinx.coroutines.withContext
++import org.jetbrains.exposed.sql.transactions.transaction
++import org.joda.time.DateTime
++
++object AuthorService {
++    suspend fun addAuthor(body: AuthorRecord): AuthorRecord = withContext(Dispatchers.IO) {
++        transaction {
++            val now = DateTime.now()
++            val entity = AuthorEntity.new {
++                this.fullName = body.fullName
++                this.creationDate = now
++            }
++
++            return@transaction entity.toResponse()
++        }
++    }
++}
+\ No newline at end of file
+Index: src/main/java/mobi/sevenwinds/app/author/AuthorTable.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/java/mobi/sevenwinds/app/author/AuthorTable.kt b/src/main/java/mobi/sevenwinds/app/author/AuthorTable.kt
+new file mode 100644
+--- /dev/null	(revision 23e49bec82d3024784ec68c5440e27ecd1729650)
++++ b/src/main/java/mobi/sevenwinds/app/author/AuthorTable.kt	(revision 23e49bec82d3024784ec68c5440e27ecd1729650)
+@@ -0,0 +1,23 @@
++package mobi.sevenwinds.app.author
++
++import org.jetbrains.exposed.dao.EntityID
++import org.jetbrains.exposed.dao.IntEntity
++import org.jetbrains.exposed.dao.IntEntityClass
++import org.jetbrains.exposed.dao.IntIdTable
++
++object AuthorTable : IntIdTable("author") {
++    val fullName = varchar("full_name", length = 255)
++    val creationDate = datetime("creation_date")
++}
++
++class AuthorEntity(id: EntityID<Int>) : IntEntity(id) {
++    companion object : IntEntityClass<AuthorEntity>(AuthorTable)
++
++    var fullName by AuthorTable.fullName
++    var creationDate by AuthorTable.creationDate
++
++    fun toResponse(): AuthorRecord {
++        return AuthorRecord(fullName, creationDate)
++    }
++}
++
+Index: src/main/java/mobi/sevenwinds/app/budget/BudgetApi.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/java/mobi/sevenwinds/app/budget/BudgetApi.kt b/src/main/java/mobi/sevenwinds/app/budget/BudgetApi.kt
+--- a/src/main/java/mobi/sevenwinds/app/budget/BudgetApi.kt	(revision 558331286eb98e64faccb3dc1ec4f180a1a47687)
++++ b/src/main/java/mobi/sevenwinds/app/budget/BudgetApi.kt	(revision 23e49bec82d3024784ec68c5440e27ecd1729650)
+@@ -14,8 +14,10 @@
+ fun NormalOpenAPIRoute.budget() {
+     route("/budget") {
+         route("/add").post<Unit, BudgetRecord, BudgetRecord>(info("Добавить запись")) { param, body ->
+-            respond(BudgetService.addRecord(body))
++            val authorId = body.authorId
++            respond(BudgetService.addRecord(body, authorId))
+         }
++
+ 
+         route("/year/{year}/stats") {
+             get<BudgetYearParam, BudgetYearStatsResponse>(info("Получить статистику за год")) { param ->
+@@ -29,7 +31,8 @@
+     @Min(1900) val year: Int,
+     @Min(1) @Max(12) val month: Int,
+     @Min(1) val amount: Int,
+-    val type: BudgetType
++    val type: BudgetType,
++    val authorId: Int? = null,
+ )
+ 
+ data class BudgetYearParam(
+@@ -45,5 +48,5 @@
+ )
+ 
+ enum class BudgetType {
+-    Приход, Расход, Комиссия
++    Приход, Расход
+ }
+\ No newline at end of file
+Index: src/main/java/mobi/sevenwinds/app/budget/BudgetService.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/java/mobi/sevenwinds/app/budget/BudgetService.kt b/src/main/java/mobi/sevenwinds/app/budget/BudgetService.kt
+--- a/src/main/java/mobi/sevenwinds/app/budget/BudgetService.kt	(revision 558331286eb98e64faccb3dc1ec4f180a1a47687)
++++ b/src/main/java/mobi/sevenwinds/app/budget/BudgetService.kt	(revision 23e49bec82d3024784ec68c5440e27ecd1729650)
+@@ -2,17 +2,22 @@
+ 
+ import kotlinx.coroutines.Dispatchers
+ import kotlinx.coroutines.withContext
++import mobi.sevenwinds.app.author.AuthorTable
++import org.jetbrains.exposed.dao.EntityID
++import org.jetbrains.exposed.sql.SortOrder
+ import org.jetbrains.exposed.sql.select
++import org.jetbrains.exposed.sql.sum
+ import org.jetbrains.exposed.sql.transactions.transaction
+ 
+ object BudgetService {
+-    suspend fun addRecord(body: BudgetRecord): BudgetRecord = withContext(Dispatchers.IO) {
++    suspend fun addRecord(body: BudgetRecord, authorId: Int? = null): BudgetRecord = withContext(Dispatchers.IO) {
+         transaction {
+             val entity = BudgetEntity.new {
+                 this.year = body.year
+                 this.month = body.month
+                 this.amount = body.amount
+                 this.type = body.type
++                this.authorId = authorId?.let { EntityID(it, AuthorTable) }
+             }
+ 
+             return@transaction entity.toResponse()
+@@ -21,14 +26,22 @@
+ 
+     suspend fun getYearStats(param: BudgetYearParam): BudgetYearStatsResponse = withContext(Dispatchers.IO) {
+         transaction {
++            val total = BudgetTable.select { BudgetTable.year eq param.year }.count()
++
+             val query = BudgetTable
+                 .select { BudgetTable.year eq param.year }
+-                .limit(param.limit, param.offset)
++                .orderBy(BudgetTable.month to SortOrder.ASC, BudgetTable.amount to SortOrder.DESC)
++                .limit(param.limit, offset = (param.offset - 1) * param.limit)
+ 
+-            val total = query.count()
+             val data = BudgetEntity.wrapRows(query).map { it.toResponse() }
+ 
+-            val sumByType = data.groupBy { it.type.name }.mapValues { it.value.sumOf { v -> v.amount } }
++            val sumByType = BudgetTable
++                .slice(BudgetTable.type, BudgetTable.amount.sum())
++                .select { BudgetTable.year eq param.year }
++                .groupBy(BudgetTable.type)
++                .associate {
++                    it[BudgetTable.type].name to (it[BudgetTable.amount.sum()]?.toInt() ?: 0)
++                }
+ 
+             return@transaction BudgetYearStatsResponse(
+                 total = total,
+Index: src/main/java/mobi/sevenwinds/app/budget/BudgetTable.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/java/mobi/sevenwinds/app/budget/BudgetTable.kt b/src/main/java/mobi/sevenwinds/app/budget/BudgetTable.kt
+--- a/src/main/java/mobi/sevenwinds/app/budget/BudgetTable.kt	(revision 558331286eb98e64faccb3dc1ec4f180a1a47687)
++++ b/src/main/java/mobi/sevenwinds/app/budget/BudgetTable.kt	(revision 23e49bec82d3024784ec68c5440e27ecd1729650)
+@@ -1,5 +1,6 @@
+ package mobi.sevenwinds.app.budget
+ 
++import mobi.sevenwinds.app.author.AuthorTable
+ import org.jetbrains.exposed.dao.EntityID
+ import org.jetbrains.exposed.dao.IntEntity
+ import org.jetbrains.exposed.dao.IntEntityClass
+@@ -10,7 +11,9 @@
+     val month = integer("month")
+     val amount = integer("amount")
+     val type = enumerationByName("type", 100, BudgetType::class)
++    val authorId = reference("author_id", AuthorTable).nullable()
+ }
++
+ 
+ class BudgetEntity(id: EntityID<Int>) : IntEntity(id) {
+     companion object : IntEntityClass<BudgetEntity>(BudgetTable)
+@@ -19,6 +22,7 @@
+     var month by BudgetTable.month
+     var amount by BudgetTable.amount
+     var type by BudgetTable.type
++    var authorId by BudgetTable.authorId
+ 
+     fun toResponse(): BudgetRecord {
+         return BudgetRecord(year, month, amount, type)
+Index: src/main/java/mobi/sevenwinds/modules/DatabaseFactory.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/java/mobi/sevenwinds/modules/DatabaseFactory.kt b/src/main/java/mobi/sevenwinds/modules/DatabaseFactory.kt
+--- a/src/main/java/mobi/sevenwinds/modules/DatabaseFactory.kt	(revision 558331286eb98e64faccb3dc1ec4f180a1a47687)
++++ b/src/main/java/mobi/sevenwinds/modules/DatabaseFactory.kt	(revision 23e49bec82d3024784ec68c5440e27ecd1729650)
+@@ -22,7 +22,7 @@
+ 
+         val flyway = Flyway.configure().dataSource(dbUrl, dbUser, dbPassword)
+             .locations("classpath:db/migration")
+-//            .baselineOnMigrate(true)
++            .baselineOnMigrate(true)
+             .outOfOrder(true)
+             .load()
+ 
+Index: src/main/java/mobi/sevenwinds/modules/Routing.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/java/mobi/sevenwinds/modules/Routing.kt b/src/main/java/mobi/sevenwinds/modules/Routing.kt
+--- a/src/main/java/mobi/sevenwinds/modules/Routing.kt	(revision 558331286eb98e64faccb3dc1ec4f180a1a47687)
++++ b/src/main/java/mobi/sevenwinds/modules/Routing.kt	(revision 23e49bec82d3024784ec68c5440e27ecd1729650)
+@@ -6,10 +6,12 @@
+ import io.ktor.application.*
+ import io.ktor.response.*
+ import io.ktor.routing.*
++import mobi.sevenwinds.app.author.author
+ import mobi.sevenwinds.app.budget.budget
+ 
+ fun NormalOpenAPIRoute.swaggerRouting() {
+     tag(SwaggerTag.Бюджет) { budget() }
++    tag(SwaggerTag.Автор) { author() }
+ }
+ 
+ fun Routing.serviceRouting() {
+Index: src/main/java/mobi/sevenwinds/modules/Swagger.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/java/mobi/sevenwinds/modules/Swagger.kt b/src/main/java/mobi/sevenwinds/modules/Swagger.kt
+--- a/src/main/java/mobi/sevenwinds/modules/Swagger.kt	(revision 558331286eb98e64faccb3dc1ec4f180a1a47687)
++++ b/src/main/java/mobi/sevenwinds/modules/Swagger.kt	(revision 23e49bec82d3024784ec68c5440e27ecd1729650)
+@@ -39,6 +39,6 @@
+ 
+ @Suppress("NonAsciiCharacters", "EnumEntryName")
+ enum class SwaggerTag(override val description: String = "") : APITag {
+-    Бюджет,
++    Бюджет, Автор
+     ;
+ }
+\ No newline at end of file
+Index: src/main/resources/application.conf
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/resources/application.conf b/src/main/resources/application.conf
+--- a/src/main/resources/application.conf	(revision 558331286eb98e64faccb3dc1ec4f180a1a47687)
++++ b/src/main/resources/application.conf	(revision 23e49bec82d3024784ec68c5440e27ecd1729650)
+@@ -17,9 +17,9 @@
+ 
+ db {
+     jdbcDriver = "org.postgresql.Driver"
+-    jdbcUrl = "jdbc:postgresql://localhost:45533/dev_mem"
+-    dbUser = "dev"
+-    dbPassword = "dev"
++  jdbcUrl = "jdbc:postgresql://localhost:5432/postgres"
++  dbUser = "postgres"
++  dbPassword = "postgre"
+     maxPoolSize = 5
+ }
+ 
+Index: src/main/resources/db/migration/V2__Update_budget_type.sql
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/resources/db/migration/V2__Update_budget_type.sql b/src/main/resources/db/migration/V2__Update_budget_type.sql
+new file mode 100644
+--- /dev/null	(revision 23e49bec82d3024784ec68c5440e27ecd1729650)
++++ b/src/main/resources/db/migration/V2__Update_budget_type.sql	(revision 23e49bec82d3024784ec68c5440e27ecd1729650)
+@@ -0,0 +1,3 @@
++UPDATE budget
++SET type = 'Расход'
++WHERE type = 'Комиссия';
+\ No newline at end of file
+Index: src/main/resources/db/migration/V3__Create_author_table.sql
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/resources/db/migration/V3__Create_author_table.sql b/src/main/resources/db/migration/V3__Create_author_table.sql
+new file mode 100644
+--- /dev/null	(revision 23e49bec82d3024784ec68c5440e27ecd1729650)
++++ b/src/main/resources/db/migration/V3__Create_author_table.sql	(revision 23e49bec82d3024784ec68c5440e27ecd1729650)
+@@ -0,0 +1,6 @@
++CREATE TABLE Author
++(
++    id            SERIAL PRIMARY KEY,
++    full_name     VARCHAR(255) NOT NULL,
++    creation_date TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
++);
+\ No newline at end of file
+Index: src/main/resources/db/migration/V4__Add_author_to_budget.sql
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/resources/db/migration/V4__Add_author_to_budget.sql b/src/main/resources/db/migration/V4__Add_author_to_budget.sql
+new file mode 100644
+--- /dev/null	(revision 23e49bec82d3024784ec68c5440e27ecd1729650)
++++ b/src/main/resources/db/migration/V4__Add_author_to_budget.sql	(revision 23e49bec82d3024784ec68c5440e27ecd1729650)
+@@ -0,0 +1,2 @@
++ALTER TABLE Budget
++    ADD COLUMN author_id INT REFERENCES Author (id);
+\ No newline at end of file
+Index: src/main/resources/test.conf
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/resources/test.conf b/src/main/resources/test.conf
+--- a/src/main/resources/test.conf	(revision 558331286eb98e64faccb3dc1ec4f180a1a47687)
++++ b/src/main/resources/test.conf	(revision 23e49bec82d3024784ec68c5440e27ecd1729650)
+@@ -17,9 +17,9 @@
+ 
+ db {
+     jdbcDriver = "org.postgresql.Driver"
+-    jdbcUrl = "jdbc:postgresql://localhost:45533/dev_mem"
+-    dbUser = "dev"
+-    dbPassword = "dev"
++  jdbcUrl = "jdbc:postgresql://localhost:5432/postgres"
++  dbUser = "postgres"
++  dbPassword = "postgre"
+     maxPoolSize = 5
+ }
+ 
+Index: src/test/java/mobi/sevenwinds/app/budget/BudgetApiKtTest.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/test/java/mobi/sevenwinds/app/budget/BudgetApiKtTest.kt b/src/test/java/mobi/sevenwinds/app/budget/BudgetApiKtTest.kt
+--- a/src/test/java/mobi/sevenwinds/app/budget/BudgetApiKtTest.kt	(revision 558331286eb98e64faccb3dc1ec4f180a1a47687)
++++ b/src/test/java/mobi/sevenwinds/app/budget/BudgetApiKtTest.kt	(revision 23e49bec82d3024784ec68c5440e27ecd1729650)
+@@ -33,9 +33,9 @@
+             .toResponse<BudgetYearStatsResponse>().let { response ->
+                 println("${response.total} / ${response.items} / ${response.totalByType}")
+ 
+-                Assert.assertEquals(5, response.total)
+-                Assert.assertEquals(3, response.items.size)
+-                Assert.assertEquals(105, response.totalByType[BudgetType.Приход.name])
++                Assert.assertEquals(5, response.total) // Общее количество записей
++                Assert.assertEquals(3, response.items.size) // Ожидается 3 записи из-за параметров пагинации
++                Assert.assertEquals(105, response.totalByType[BudgetType.Приход.name]) // Проверка суммы
+             }
+     }
+ 
